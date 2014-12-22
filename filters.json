@@ -38,5 +38,15 @@
         "description": "Issues that are unresolved", 
         "id": "12323020", 
         "jql": "resolution is EMPTY"
+    },
+    "ds_decisions_maint": {
+        "description": "DECISIONs for current project+versions for JBIDE/JBDS maintenance", 
+        "id": "12323026", 
+        "jql": "((project = JBIDE AND fixVersion in ( %(jbide_maint_versions)s )) OR (project = JBDS AND fixVersion in ( %(jbds_maint_versions)s ))) AND comment ~ DECISION"
+    },
+    "ds_decisions_master": {
+        "description": "DECISIONs for current project+versions for JBIDE/JBDS master stream", 
+        "id": "12323026", 
+        "jql": "((project = JBIDE AND fixVersion in ( %(jbide_master_versions)s )) OR (project = JBDS AND fixVersion in ( %(jbds_master_versions)s ))) AND comment ~ DECISION"
     }
 }
