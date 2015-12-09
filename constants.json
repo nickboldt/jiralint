@@ -72,7 +72,7 @@
     "jbds_freeze_versions": {
 	"function": "listVersions",
 	"project": "JBDS",
-	"pattern": "8.1.*|9.*|10.*",
+	"pattern": "8.1.*|9.1.*|10.*",
 	"codefrozen": true
     },
     "jbide_latest_freeze_versions": {
@@ -85,7 +85,7 @@
     "jbds_latest_freeze_versions": {
 	"function": "listVersions",
 	"project": "JBDS",
-	"pattern": "8.1.*|9.*|10.*",
+	"pattern": "8.1.*|9.1.*|10.*",
 	"codefrozen": true,
 	"index" : -1
     }
