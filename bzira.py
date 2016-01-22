@@ -143,7 +143,7 @@ def parse_options():
     parser.add_option("-d", "--dry-run", dest="dryrun", action="store_true", help="do everything but actually creating issues")
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="be verbose")
     # TODO should we support min age in hours instead of days? How often do we want to run this script?
-    parser.add_option("-m", "--min-age", dest="minimum_age_to_process", help="if bugzilla has not changed in more than X days, do not process it")
+parser.add_option("-m", "--min-age", dest="minimum_age_to_process", default="7", help="if bugzilla has not changed in more than X days, do not process it")
     parser.add_option("-S", "--start-date", dest="start_date", default="", help="use this start date (yyyy-mm-dd) as the threshhold from which to query for bugzillas")
 
     (options, args) = parser.parse_args()
@@ -160,16 +160,16 @@ options = parse_options()
 bzserver = "https://bugs.eclipse.org/"
 basequery = bzserver + "bugs/buglist.cgi?status_whiteboard=RHT"
 
-# get current datetime in UTC for comparison to bug.delta_ts, which is also in UTC; use this diff to ignore processing old bugzillas
-now = datetime.utcnow()
-if (options.verbose):
-    print "[DEBUG] " + "Current datetime: " + str(now) + " (UTC)"
-    print "" 
-
 # calculate relative date if options.start_date not provided but minimum_age_to_process is provided
+last_change_time = None
 if (options.start_date):
     last_change_time = datetime.strptime(str(options.start_date),'%Y-%m-%d')
 elif (options.minimum_age_to_process):
+    # get current datetime in UTC for comparison to bug.delta_ts, which is also in UTC; use this diff to ignore processing old bugzillas
+    now = datetime.utcnow()
+    if (options.verbose):
+        print "[DEBUG] " + "Current datetime: " + str(now) + " (UTC)"
+        print "" 
     last_change_time = now - timedelta(days=int(options.minimum_age_to_process))
 else:
     last_change_time = None
@@ -186,9 +186,14 @@ else:
     query = basequery
     
 bz = bugzilla.Bugzilla(url=bzserver + "bugs/xmlrpc.cgi")
-
-print "[DEBUG] " + "Querying bugzilla: " + query
-    
+if (last_change_time is not None):
+if (options.verbose):
+    print "[DEBUG] " + "Querying bugzilla: " + bzserver + "bugs/buglist.cgi?status_whiteboard=RHT&chfieldfrom=" + last_change_time.strftime('%Y-%m-%d+%H:%M')
+query = bz.url_to_query(bzserver + "bugs/buglist.cgi?status_whiteboard=RHT&last_change_time=" + last_change_time.strftime('%Y-%m-%d+%H:%M'))
+else:
+    if (options.verbose):
+        print "[DEBUG] " + "Querying bugzilla: " + bzserver + "bugs/buglist.cgi?status_whiteboard=RHT"
+    query = bz.url_to_query(bzserver + "bugs/buglist.cgi?status_whiteboard=RHT")
 issues = bz.query(bz.url_to_query(query))
 
 print "[DEBUG] " + "Found " + str(len(issues)) + " bugzillas to process"
@@ -206,27 +211,23 @@ for bug in issues:
     # bug.delta_ts = bugzilla last changed date, eg., 20160106T09:50:33
 
     
-    changeddate = datetime.strptime(str(bug.delta_ts), '%Y%m%dT%H:%M:%S')
-    difference = now - changeddate
-
     if(options.verbose):
         print '[DEBUG] %s - %s [%s, %s, [%s]] {%s} -> %s (%s)' % (bug.id, bug.summary, bug.product, bug.component, bug.target_milestone, bug.delta_ts, bug.weburl, difference)
-    else:
-        sys.stdout.write('.')
+        if (options.verbose):
         
     issue_dict = create_proxy_jira_dict(options, bug)
 
     
-    ## ensure the product name exists as a component
+       ## ensure the product name exists as a component
     if(not next((c for c in components if bug.product == c.name), None)): 
         comp = jira.create_component(bug.product, "ERT")
         components = jira.project_components('ERT')
-        
+    
     proxyissue = lookup_proxy(options, bug)
-        
+    
     if(proxyissue):
         if(options.verbose):
-            print "[INFO] " + bzserver + str(bug.id) + " already proxied as " + options.jiraserver + "/browse/" + proxyissue['key']
+            print "[WARN] " + bzserver + str(bug.id) + " already proxied as " + options.jiraserver + "/browse/" + proxyissue['key']
         #print str(proxyissue)
         fields = {}
         if (not next((c for c in proxyissue['fields']['components'] if bug.product == c['name']), None)):
@@ -240,16 +241,14 @@ for bug in issues:
             print "Updating " + proxyissue['key'] + " with " + str(fields)
             isbug = jira.issue(proxyissue['key'])
             isbug.update(fields)
-    
+                
     else:
         if(options.dryrun is not None):
-            print "[INFO] Want to create jira for " + str(bug)
             if(options.verbose):
-                print "[DEBUG] " + str(issue_dict)
         else:
             newissue = jira.create_issue(fields=issue_dict)
             link = {"object": {'url': bug.weburl, 'title': "Original Eclipse Bug"}}
-            print "[INFO] Created " + options.jiraserver + "/browse/" + newissue.key
+                print "[INFO] Create " + options.jiraserver + "/browse/" + newissue.key
             jira.add_simple_link(newissue, object=link)
             bugs.append(newissue)
 
