@@ -80,6 +80,8 @@ def map_linuxtools(version):
         }
     return versions.get(version, None)
 
+# TODO: need to trap errors better to avoid this:
+#    response text = {"errorMessages":[],"errors":{"fixVersions":"Version name 'Neon' is not valid"}}
 bzprod_version_map = {
     "WTP Incubator" : (lambda version: NO_VERSION),
 
@@ -116,7 +118,6 @@ def bz_to_jira_version(options, bug):
             print "[ERROR] Unknown version for " + bug.product + " / " + bzversion
     else:
         print "[ERROR] No version mapper found for " + bug.product
-
     
 
 bz2jira_priority = {
@@ -187,11 +188,14 @@ else:
     
 bz = bugzilla.Bugzilla(url=bzserver + "bugs/xmlrpc.cgi")
 
-print "[DEBUG] " + "Querying bugzilla: " + query
+
+if (options.verbose):
+    print "[DEBUG] " + "Querying bugzilla: " + query.replace("last_change_time","chfieldfrom")
     
 issues = bz.query(bz.url_to_query(query))
 
-print "[DEBUG] " + "Found " + str(len(issues)) + " bugzillas to process"
+if (options.verbose):
+    print "[DEBUG] " + "Found " + str(len(issues)) + " bugzillas to process"
 
 bugs = []
 
@@ -211,7 +215,7 @@ for bug in issues:
 
     if(options.verbose):
         print '[DEBUG] %s - %s [%s, %s, [%s]] {%s} -> %s (%s)' % (bug.id, bug.summary, bug.product, bug.component, bug.target_milestone, bug.delta_ts, bug.weburl, difference)
-    else:
+    elif(options.dryrun is None): 
         sys.stdout.write('.')
         
     issue_dict = create_proxy_jira_dict(options, bug)
